@@ -6,11 +6,11 @@ import (
 )
 
 func TestLoadFromEnvDefaults(t *testing.T) {
-	t.Setenv("WHEMAIL_AI_ADDRESS", "")
-	t.Setenv("WHEMAIL_AI_READ_TIMEOUT_SECONDS", "")
-	t.Setenv("WHEMAIL_AI_WRITE_TIMEOUT_SECONDS", "")
-	t.Setenv("WHEMAIL_AI_MAX_REQUEST_BYTES", "")
-	t.Setenv("WHEMAIL_AI_RATE_LIMIT_RPM", "")
+	t.Setenv("WHYMAIL_AI_ADDRESS", "")
+	t.Setenv("WHYMAIL_AI_READ_TIMEOUT_SECONDS", "")
+	t.Setenv("WHYMAIL_AI_WRITE_TIMEOUT_SECONDS", "")
+	t.Setenv("WHYMAIL_AI_MAX_REQUEST_BYTES", "")
+	t.Setenv("WHYMAIL_AI_RATE_LIMIT_RPM", "")
 
 	cfg, err := LoadFromEnv()
 	if err != nil {
@@ -25,7 +25,7 @@ func TestLoadFromEnvDefaults(t *testing.T) {
 }
 
 func TestLoadFromEnvInvalid(t *testing.T) {
-	t.Setenv("WHEMAIL_AI_RATE_LIMIT_RPM", "-1")
+	t.Setenv("WHYMAIL_AI_RATE_LIMIT_RPM", "-1")
 	_, err := LoadFromEnv()
 	if err == nil {
 		t.Fatal("expected validation error")

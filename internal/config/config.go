@@ -28,11 +28,11 @@ type Config struct {
 // LoadFromEnv builds config from environment variables with safe defaults.
 func LoadFromEnv() (Config, error) {
 	cfg := Config{
-		ServerAddress:   getenv("WHEMAIL_AI_ADDRESS", defaultAddress),
-		ReadTimeout:     time.Duration(getenvInt("WHEMAIL_AI_READ_TIMEOUT_SECONDS", defaultReadTimeoutSec)) * time.Second,
-		WriteTimeout:    time.Duration(getenvInt("WHEMAIL_AI_WRITE_TIMEOUT_SECONDS", defaultWriteTimeoutSec)) * time.Second,
-		MaxRequestBytes: getenvInt64("WHEMAIL_AI_MAX_REQUEST_BYTES", defaultMaxRequestBytes),
-		RateLimitRPM:    getenvInt("WHEMAIL_AI_RATE_LIMIT_RPM", defaultRateLimitRPM),
+		ServerAddress:   getenv("WHYMAIL_AI_ADDRESS", defaultAddress),
+		ReadTimeout:     time.Duration(getenvInt("WHYMAIL_AI_READ_TIMEOUT_SECONDS", defaultReadTimeoutSec)) * time.Second,
+		WriteTimeout:    time.Duration(getenvInt("WHYMAIL_AI_WRITE_TIMEOUT_SECONDS", defaultWriteTimeoutSec)) * time.Second,
+		MaxRequestBytes: getenvInt64("WHYMAIL_AI_MAX_REQUEST_BYTES", defaultMaxRequestBytes),
+		RateLimitRPM:    getenvInt("WHYMAIL_AI_RATE_LIMIT_RPM", defaultRateLimitRPM),
 	}
 
 	if err := cfg.Validate(); err != nil {
