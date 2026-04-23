@@ -1,7 +1,6 @@
 package safety
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
 )
@@ -117,5 +116,5 @@ func IsActionBlocked(action string, flags []string) bool {
 			return true
 		}
 	}
-	return strings.EqualFold(strings.TrimSpace(action), fmt.Sprintf("%s", "execute-system-command"))
+	return strings.EqualFold(strings.TrimSpace(action), "execute-system-command")
 }
