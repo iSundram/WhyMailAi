@@ -31,16 +31,19 @@ type RouteResult struct {
 
 // Router routes requests by task type to model pipelines.
 type Router struct {
-	policy   *policy.Engine
-	models   map[string]models.Backend
-	fallback models.Backend
+	policy    *policy.Engine
+	models    map[string]models.Backend
+	fallback  models.Backend
+	preferred string // ID of preferred backend (remote when configured)
 }
 
 // NewRouter creates a routing instance.
-func NewRouter(policyEngine *policy.Engine) *Router {
+// When remoteBackend is non-nil it is registered as the preferred backend
+// for all task types it supports, with the local backends as fallback.
+func NewRouter(policyEngine *policy.Engine, remoteBackend ...models.Backend) *Router {
 	primary := models.LocalPrimaryBackend{}
 	fallback := models.LocalFallbackBackend{}
-	return &Router{
+	r := &Router{
 		policy: policyEngine,
 		models: map[string]models.Backend{
 			primary.ID():  primary,
@@ -48,6 +51,13 @@ func NewRouter(policyEngine *policy.Engine) *Router {
 		},
 		fallback: fallback,
 	}
+	// Register remote backend if provided.
+	if len(remoteBackend) > 0 && remoteBackend[0] != nil {
+		rb := remoteBackend[0]
+		r.models[rb.ID()] = rb
+		r.preferred = rb.ID()
+	}
+	return r
 }
 
 // Run executes routing, model selection, confidence fallback, and policy post-processing.
@@ -92,8 +102,14 @@ func (r *Router) Run(req RunRequest) (RouteResult, error) {
 }
 
 func (r *Router) selectBackend(preferred string, task types.TaskType) models.Backend {
-	if preferred != "" {
-		if m, ok := r.models[preferred]; ok && m.Supports(task) {
+	// Router-level preferred (e.g. remote ML server) takes priority over
+	// per-tenant preference unless the tenant explicitly overrides it.
+	effective := preferred
+	if effective == "" {
+		effective = r.preferred
+	}
+	if effective != "" {
+		if m, ok := r.models[effective]; ok && m.Supports(task) {
 			return m
 		}
 	}

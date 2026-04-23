@@ -9,30 +9,39 @@ import (
 )
 
 const (
-	defaultAddress         = ":8080"
-	defaultReadTimeoutSec  = 15
-	defaultWriteTimeoutSec = 15
-	defaultMaxRequestBytes = int64(1 << 20) // 1 MiB
-	defaultRateLimitRPM    = 120
+	defaultAddress                = ":8080"
+	defaultReadTimeoutSec         = 15
+	defaultWriteTimeoutSec        = 15
+	defaultMaxRequestBytes        = int64(1 << 20) // 1 MiB
+	defaultRateLimitRPM           = 120
+	defaultRemoteInferenceURL     = ""  // empty = disabled; set to http://localhost:9090 to enable
+	defaultRemoteTimeoutSec       = 30
 )
 
 // Config contains runtime configuration for the AI API service.
 type Config struct {
-	ServerAddress   string
-	ReadTimeout     time.Duration
-	WriteTimeout    time.Duration
-	MaxRequestBytes int64
-	RateLimitRPM    int
+	ServerAddress      string
+	ReadTimeout        time.Duration
+	WriteTimeout       time.Duration
+	MaxRequestBytes    int64
+	RateLimitRPM       int
+	// RemoteInferenceURL is the base URL of the Python ML inference server.
+	// When non-empty the orchestration layer will prefer the remote backend
+	// over the built-in heuristic backends.
+	RemoteInferenceURL string
+	RemoteTimeoutSec   int
 }
 
 // LoadFromEnv builds config from environment variables with safe defaults.
 func LoadFromEnv() (Config, error) {
 	cfg := Config{
-		ServerAddress:   getenv("WHYMAIL_AI_ADDRESS", defaultAddress),
-		ReadTimeout:     time.Duration(getenvInt("WHYMAIL_AI_READ_TIMEOUT_SECONDS", defaultReadTimeoutSec)) * time.Second,
-		WriteTimeout:    time.Duration(getenvInt("WHYMAIL_AI_WRITE_TIMEOUT_SECONDS", defaultWriteTimeoutSec)) * time.Second,
-		MaxRequestBytes: getenvInt64("WHYMAIL_AI_MAX_REQUEST_BYTES", defaultMaxRequestBytes),
-		RateLimitRPM:    getenvInt("WHYMAIL_AI_RATE_LIMIT_RPM", defaultRateLimitRPM),
+		ServerAddress:      getenv("WHYMAIL_AI_ADDRESS", defaultAddress),
+		ReadTimeout:        time.Duration(getenvInt("WHYMAIL_AI_READ_TIMEOUT_SECONDS", defaultReadTimeoutSec)) * time.Second,
+		WriteTimeout:       time.Duration(getenvInt("WHYMAIL_AI_WRITE_TIMEOUT_SECONDS", defaultWriteTimeoutSec)) * time.Second,
+		MaxRequestBytes:    getenvInt64("WHYMAIL_AI_MAX_REQUEST_BYTES", defaultMaxRequestBytes),
+		RateLimitRPM:       getenvInt("WHYMAIL_AI_RATE_LIMIT_RPM", defaultRateLimitRPM),
+		RemoteInferenceURL: getenv("WHYMAIL_REMOTE_INFERENCE_URL", defaultRemoteInferenceURL),
+		RemoteTimeoutSec:   getenvInt("WHYMAIL_REMOTE_TIMEOUT_SEC", defaultRemoteTimeoutSec),
 	}
 
 	if err := cfg.Validate(); err != nil {

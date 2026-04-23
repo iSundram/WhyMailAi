@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/iSundram/WhyMailAi/internal/config"
+	"github.com/iSundram/WhyMailAi/internal/models"
 	"github.com/iSundram/WhyMailAi/internal/orchestration"
 	"github.com/iSundram/WhyMailAi/internal/policy"
 	"github.com/iSundram/WhyMailAi/internal/safety"
@@ -61,9 +62,19 @@ type Server struct {
 // NewServer constructs an API server.
 func NewServer(cfg config.Config) *Server {
 	policyEngine := policy.NewEngine()
+
+	// Optionally wire the remote ML inference backend when configured.
+	var remoteBackend models.Backend
+	if cfg.RemoteInferenceURL != "" {
+		rb := models.NewRemoteInferenceBackend()
+		if err := rb.Ping(); err == nil {
+			remoteBackend = rb
+		}
+	}
+
 	return &Server{
 		cfg:       cfg,
-		router:    orchestration.NewRouter(policyEngine),
+		router:    orchestration.NewRouter(policyEngine, remoteBackend),
 		limiter:   newRateLimiter(cfg.RateLimitRPM),
 		store:     storage.NewMemoryStore(),
 		metrics:   telemetry.NewMetrics(),
