@@ -5,7 +5,10 @@ import (
 	"strings"
 )
 
-const maxStringLen = 8000
+const (
+	maxStringLen         = 8000
+	blockedSystemAction = "execute-system-command"
+)
 
 var suspiciousPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)ignore\s+previous\s+instructions`),
@@ -116,5 +119,5 @@ func IsActionBlocked(action string, flags []string) bool {
 			return true
 		}
 	}
-	return strings.EqualFold(strings.TrimSpace(action), "execute-system-command")
+	return strings.EqualFold(strings.TrimSpace(action), blockedSystemAction)
 }
