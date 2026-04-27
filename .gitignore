@@ -1,0 +1,12 @@
+# Python cache / test artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local experiment artifacts
+mlflow.db
+mlruns/
+
+# Local data/models outputs
+data/
+models/
