@@ -56,6 +56,9 @@ export WHYMAIL_INCLUDE_EXTENDED_HF=1
 # Optionally add one Kaggle dataset slug (requires kaggle CLI + credentials)
 export WHYMAIL_KAGGLE_DATASET=<owner>/<dataset>
 
+# Optional timeout override for large Kaggle downloads (seconds)
+export WHYMAIL_KAGGLE_DOWNLOAD_TIMEOUT_SECONDS=900
+
 bash scripts/download_datasets.sh data/
 ```
 
