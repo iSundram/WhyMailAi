@@ -45,6 +45,26 @@ This script:
 5. Produces stratified 80/10/10 train/val/test splits.
 6. Validates label distribution and quality.
 
+### Optional: extended datasets (HuggingFace + Kaggle)
+
+For larger spam corpora, enable extra ingestion sources:
+
+```bash
+# Add extra HuggingFace spam datasets (best effort)
+export WHYMAIL_INCLUDE_EXTENDED_HF=1
+
+# Optionally add one Kaggle dataset slug (requires kaggle CLI + credentials)
+export WHYMAIL_KAGGLE_DATASET=<owner>/<dataset>
+
+bash scripts/download_datasets.sh data/
+```
+
+You can also invoke the Python downloader directly:
+
+```bash
+python -m ml.data.download data/ --include-extended-hf --kaggle-dataset <owner>/<dataset>
+```
+
 ### Manual download (alternative)
 
 ```bash
@@ -58,6 +78,21 @@ python -m ml.data.download data/
 ```bash
 go run ./cmd/trainer --task all --data-dir data/ --models-dir models/
 ```
+
+### Advanced profile (stronger base models + longer training)
+
+```bash
+go run ./cmd/trainer \
+    --task all \
+    --profile advanced \
+    --include-extended-hf \
+    --kaggle-dataset <owner>/<dataset> \
+    --data-dir data/ \
+    --models-dir models/
+```
+
+`--profile advanced` uses larger base models for spam/phishing/summarization and
+enables heavier defaults intended for quality-focused training runs.
 
 Or train individual models:
 

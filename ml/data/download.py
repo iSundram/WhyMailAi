@@ -22,11 +22,14 @@ and saved to <data_dir>/<split>.jsonl
 
 from __future__ import annotations
 
+import argparse
+import csv
 import json
-import logging
 import os
+import shutil
+import subprocess
+import tempfile
 from pathlib import Path
-from typing import Iterator
 
 from datasets import load_dataset, DatasetDict, Dataset
 from loguru import logger
@@ -61,6 +64,30 @@ def _load_jsonl(path: Path) -> list[dict]:
             if line:
                 records.append(json.loads(line))
     return records
+
+
+def _normalise_binary_label(value) -> int | None:
+    s = str(value).strip().lower()
+    if s in {"1", "true", "yes", "spam", "junk", "phishing", "malicious"}:
+        return 1
+    if s in {"0", "false", "no", "ham", "legitimate", "safe", "not spam"}:
+        return 0
+    try:
+        return 1 if float(s) >= 0.5 else 0
+    except Exception:
+        return None
+
+
+def _guess_column(columns: list[str], candidates: list[str]) -> str | None:
+    lowered = {c.lower(): c for c in columns}
+    for c in candidates:
+        if c.lower() in lowered:
+            return lowered[c.lower()]
+    for col in columns:
+        for c in candidates:
+            if c.lower() in col.lower():
+                return col
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -208,10 +235,122 @@ def download_dialogsum(data_dir: Path) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# Extended / optional spam sources
+# ---------------------------------------------------------------------------
+
+def download_extra_hf_spam(data_dir: Path, dataset_names: list[str]) -> list[dict]:
+    """
+    Best-effort downloader for additional HF spam datasets.
+    Tries to infer text/label columns and ignores unsupported datasets.
+    """
+    out_records: list[dict] = []
+    for name in dataset_names:
+        dataset_name = name.strip()
+        if not dataset_name:
+            continue
+        logger.info(f"Downloading extra HuggingFace dataset: {dataset_name}")
+        try:
+            ds = load_dataset(dataset_name, split="train", trust_remote_code=True)
+            columns = list(ds.column_names)
+            text_col = _guess_column(columns, ["text", "message", "email", "content", "body"])
+            label_col = _guess_column(columns, ["label", "target", "class", "spam"])
+            if text_col is None or label_col is None:
+                logger.warning(
+                    f"Skipping {dataset_name}: unable to infer text/label columns from {columns}"
+                )
+                continue
+            kept = 0
+            for row in ds:
+                label = _normalise_binary_label(row.get(label_col))
+                text = str(row.get(text_col, "")).strip()
+                if label is None or not text:
+                    continue
+                out_records.append(
+                    {
+                        "text": text,
+                        "label": label,
+                        "source": f"hf-extra/{dataset_name}",
+                    }
+                )
+                kept += 1
+            logger.info(f"Loaded {kept:,} records from {dataset_name}")
+        except Exception as exc:
+            logger.warning(f"Skipping {dataset_name}: {exc}")
+
+    if out_records:
+        _save_jsonl(out_records, data_dir / "raw" / "spam_extra_hf.jsonl")
+    return out_records
+
+
+def download_kaggle_spam(data_dir: Path, dataset_slug: str) -> list[dict]:
+    """
+    Best-effort Kaggle downloader via kaggle CLI.
+    Expects CSV files with inferable text/label columns.
+    """
+    if not dataset_slug:
+        return []
+    kaggle_bin = shutil.which("kaggle")
+    if kaggle_bin is None:
+        logger.warning("kaggle CLI not found; skipping Kaggle dataset.")
+        return []
+
+    records: list[dict] = []
+    with tempfile.TemporaryDirectory(prefix="whymail-kaggle-") as tmp:
+        cmd = [kaggle_bin, "datasets", "download", "-d", dataset_slug, "-p", tmp, "--unzip"]
+        logger.info(f"Downloading Kaggle dataset: {dataset_slug}")
+        try:
+            subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=300)
+        except Exception as exc:
+            logger.warning(f"Failed to download Kaggle dataset {dataset_slug}: {exc}")
+            return []
+
+        csv_paths = list(Path(tmp).rglob("*.csv"))
+        if not csv_paths:
+            logger.warning(f"No CSV files found in Kaggle dataset {dataset_slug}")
+            return []
+
+        for csv_path in csv_paths:
+            try:
+                with open(csv_path, "r", encoding="utf-8", errors="ignore") as fh:
+                    reader = csv.DictReader(fh)
+                    if not reader.fieldnames:
+                        continue
+                    columns = list(reader.fieldnames)
+                    text_col = _guess_column(columns, ["text", "message", "email", "content", "body"])
+                    label_col = _guess_column(columns, ["label", "target", "class", "spam"])
+                    if text_col is None or label_col is None:
+                        continue
+                    for row in reader:
+                        label = _normalise_binary_label(row.get(label_col))
+                        text = str(row.get(text_col, "")).strip()
+                        if label is None or not text:
+                            continue
+                        records.append(
+                            {
+                                "text": text,
+                                "label": label,
+                                "source": f"kaggle/{dataset_slug}",
+                            }
+                        )
+            except Exception as exc:
+                logger.warning(f"Skipping CSV {csv_path}: {exc}")
+
+    if records:
+        _save_jsonl(records, data_dir / "raw" / "spam_kaggle.jsonl")
+    logger.info(f"Kaggle dataset added {len(records):,} records")
+    return records
+
+
+# ---------------------------------------------------------------------------
 # Main entry-point
 # ---------------------------------------------------------------------------
 
-def download_all(data_dir: str | Path = "data") -> dict[str, list[dict]]:
+def download_all(
+    data_dir: str | Path = "data",
+    *,
+    include_extended_hf: bool = False,
+    kaggle_dataset: str = "",
+) -> dict[str, list[dict]]:
     """
     Download all datasets and return them as a dict of lists.
 
@@ -229,6 +368,14 @@ def download_all(data_dir: str | Path = "data") -> dict[str, list[dict]]:
     sms = download_sms_spam(data_dir)
     enron = download_enron_spam(data_dir)
     spam_records = sms + enron
+    if include_extended_hf:
+        extra_names = os.environ.get(
+            "WHYMAIL_EXTRA_HF_SPAM_DATASETS",
+            "mrm8488/sms_spam,ShinoharaHare/Spam-Detection",
+        )
+        spam_records += download_extra_hf_spam(data_dir, extra_names.split(","))
+    if kaggle_dataset:
+        spam_records += download_kaggle_spam(data_dir, kaggle_dataset)
 
     phishing_records = download_phishing_emails(data_dir)
     summarization_records = download_dialogsum(data_dir)
@@ -251,7 +398,21 @@ def download_all(data_dir: str | Path = "data") -> dict[str, list[dict]]:
 
 
 if __name__ == "__main__":
-    import sys
-
-    data_dir = sys.argv[1] if len(sys.argv) > 1 else "data"
-    download_all(data_dir)
+    parser = argparse.ArgumentParser(description="Download WhyMail training datasets")
+    parser.add_argument("data_dir", nargs="?", default="data")
+    parser.add_argument(
+        "--include-extended-hf",
+        action="store_true",
+        help="Download additional HuggingFace spam datasets (best effort)",
+    )
+    parser.add_argument(
+        "--kaggle-dataset",
+        default="",
+        help="Optional Kaggle dataset slug for extra spam data, e.g. user/dataset",
+    )
+    args = parser.parse_args()
+    download_all(
+        args.data_dir,
+        include_extended_hf=args.include_extended_hf,
+        kaggle_dataset=args.kaggle_dataset,
+    )

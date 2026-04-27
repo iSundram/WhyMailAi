@@ -33,14 +33,31 @@ func main() {
 	dataDir := flag.String("data-dir", "data", "Root data directory")
 	modelsDir := flag.String("models-dir", "models", "Root models output directory")
 	python := flag.String("python", "python3", "Python interpreter")
+	profile := flag.String("profile", "standard", "Training profile: standard|advanced")
+	includeExtendedHF := flag.Bool("include-extended-hf", false, "Include optional extra HuggingFace spam datasets during download")
+	kaggleDataset := flag.String("kaggle-dataset", "", "Optional Kaggle dataset slug for additional spam data")
 	dryRun := flag.Bool("dry-run", false, "Print commands without executing")
 	flag.Parse()
 
 	registry := training.NewRegistry()
 
+	if *profile == "advanced" {
+		*includeExtendedHF = true
+	}
+
 	tasks := expandTask(*task)
 	for _, t := range tasks {
-		runTask(t, *dataDir, *modelsDir, *python, *dryRun, registry)
+		runTask(
+			t,
+			*dataDir,
+			*modelsDir,
+			*python,
+			*profile,
+			*includeExtendedHF,
+			*kaggleDataset,
+			*dryRun,
+			registry,
+		)
 	}
 
 	fmt.Println("--- Training summary ---")
@@ -60,7 +77,13 @@ func expandTask(task string) []string {
 	return []string{task}
 }
 
-func runTask(task, dataDir, modelsDir, python string, dryRun bool, registry *training.Registry) {
+func runTask(
+	task, dataDir, modelsDir, python, profile string,
+	includeExtendedHF bool,
+	kaggleDataset string,
+	dryRun bool,
+	registry *training.Registry,
+) {
 	id := fmt.Sprintf("%s-%d", task, time.Now().UnixNano())
 	job := registry.Create(training.Job{
 		ID:          id,
@@ -73,11 +96,24 @@ func runTask(task, dataDir, modelsDir, python string, dryRun bool, registry *tra
 	switch task {
 	case "download":
 		args = []string{"-m", "ml.data.download", dataDir}
+		if includeExtendedHF {
+			args = append(args, "--include-extended-hf")
+		}
+		if kaggleDataset != "" {
+			args = append(args, "--kaggle-dataset", kaggleDataset)
+		}
 	case "spam":
 		args = []string{
 			"-m", "ml.train.spam_classifier",
 			"--data-dir", filepath.Join(dataDir, "spam"),
 			"--output-dir", filepath.Join(modelsDir, "spam_classifier"),
+		}
+		if profile == "advanced" {
+			args = append(args,
+				"--model-name", "microsoft/deberta-v3-base",
+				"--epochs", "5",
+				"--batch-size", "16",
+			)
 		}
 	case "phishing":
 		args = []string{
@@ -85,11 +121,25 @@ func runTask(task, dataDir, modelsDir, python string, dryRun bool, registry *tra
 			"--data-dir", filepath.Join(dataDir, "phishing"),
 			"--output-dir", filepath.Join(modelsDir, "phishing_classifier"),
 		}
+		if profile == "advanced" {
+			args = append(args,
+				"--model-name", "microsoft/deberta-v3-base",
+				"--epochs", "5",
+				"--batch-size", "16",
+			)
+		}
 	case "summarizer":
 		args = []string{
 			"-m", "ml.train.summarizer",
 			"--data-dir", filepath.Join(dataDir, "summarization"),
 			"--output-dir", filepath.Join(modelsDir, "summarizer"),
+		}
+		if profile == "advanced" {
+			args = append(args,
+				"--model-name", "facebook/bart-large-cnn",
+				"--epochs", "4",
+				"--batch-size", "2",
+			)
 		}
 	case "embedder":
 		args = []string{

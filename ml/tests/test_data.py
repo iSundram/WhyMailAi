@@ -14,6 +14,7 @@ from ml.data.validate import (
     validate_classification_dataset,
     validate_summarization_dataset,
 )
+from ml.data.download import _normalise_binary_label, _guess_column
 
 
 # ---------------------------------------------------------------------------
@@ -203,3 +204,18 @@ class TestValidateSummarizationDataset:
         records = [{"text": "Valid long dialogue text here that meets the length requirement"}]
         report = validate_summarization_dataset(records)
         assert not report.is_ok
+
+
+class TestDownloadHelpers:
+    def test_normalise_binary_label_text(self):
+        assert _normalise_binary_label("spam") == 1
+        assert _normalise_binary_label("ham") == 0
+
+    def test_normalise_binary_label_numeric(self):
+        assert _normalise_binary_label("0.9") == 1
+        assert _normalise_binary_label("0.1") == 0
+
+    def test_guess_column_exact_and_fuzzy(self):
+        cols = ["message_body", "is_spam"]
+        assert _guess_column(cols, ["text", "message"]) == "message_body"
+        assert _guess_column(cols, ["label", "spam"]) == "is_spam"

@@ -157,7 +157,6 @@ def train(
                 C=cfg.C,
                 class_weight=cfg.class_weight,
                 random_state=cfg.seed,
-                multi_class="multinomial",
             )),
         ])
         model.fit(X_train, y_train)

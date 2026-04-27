@@ -44,6 +44,16 @@ go run ./cmd/ai-api
 
 Default address: `:8080`
 
+## Train models (standard / advanced)
+
+```bash
+# Standard
+go run ./cmd/trainer --task all --data-dir data/ --models-dir models/
+
+# Advanced profile (larger base models, optional extra data)
+go run ./cmd/trainer --task all --profile advanced --include-extended-hf
+```
+
 ## Key Environment Variables
 
 - `WHYMAIL_AI_ADDRESS`
