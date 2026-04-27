@@ -302,7 +302,6 @@ def download_kaggle_spam(data_dir: Path, dataset_slug: str) -> list[dict]:
         return []
 
     records: list[dict] = []
-    timeout_s = 300
     try:
         timeout_s = max(60, int(os.environ.get("WHYMAIL_KAGGLE_DOWNLOAD_TIMEOUT_SECONDS", "300")))
     except Exception:
