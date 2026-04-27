@@ -35,9 +35,10 @@ mkdir -p "${DATA_DIR}/summarization"
 echo "[1/4] Downloading datasets from HuggingFace …"
 ${PYTHON} -c "
 from ml.data.download import download_all
+include_extended = '${INCLUDE_EXTENDED_HF}'.strip().lower() in {'1', 'true', 'yes'}
 download_all(
     '${DATA_DIR}',
-    include_extended_hf=bool(int('${INCLUDE_EXTENDED_HF}')),
+    include_extended_hf=include_extended,
     kaggle_dataset='${KAGGLE_DATASET}',
 )
 "

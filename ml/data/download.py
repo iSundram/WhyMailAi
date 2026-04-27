@@ -26,6 +26,7 @@ import argparse
 import csv
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -288,6 +289,11 @@ def download_kaggle_spam(data_dir: Path, dataset_slug: str) -> list[dict]:
     Expects CSV files with inferable text/label columns.
     """
     if not dataset_slug:
+        return []
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", dataset_slug):
+        logger.warning(
+            "Invalid Kaggle dataset slug format. Expected 'owner/dataset'; skipping."
+        )
         return []
     kaggle_bin = shutil.which("kaggle")
     if kaggle_bin is None:
