@@ -45,6 +45,29 @@ LABEL_LEGITIMATE = 0
 LABEL_PHISHING = 1
 KAGGLE_SLUG_PATTERN = r"[A-Za-z0-9_]+/[A-Za-z0-9_][A-Za-z0-9_-]*"
 
+# User-requested high-volume anti-spam/phishing corpora.
+REQUESTED_HF_EMAIL_SECURITY_DATASETS = [
+    "M-Arjun/SpamShield-Datasets",
+    "puyang2025/seven-phishing-email-datasets",
+    "notd5a/sms-malicious-benign-dataset",
+    "alusci/sms-otp-spam-dataset",
+    "jason23322/high-accuracy-email-classifier",
+    "Deysi/spam-detection-dataset",
+    "tanquangduong/spam-detection-dataset-splits",
+    "nahiar/facebook_spam_detection",
+    "ChaseLabs/Harmful-Texts-On-Mastodon",
+    "AugustLight/telegram_spam_ru",
+    "anilguven/turkish_spam_email",
+    "hamza-amin/urdu-spam-dataset",
+    "Kinoux/french-spam-ham-detection-free-2k",
+    "sukhrobnurali/uzbek_spam_dataset",
+    "tanaos/synthetic-spam-detection-dataset-spanish",
+    "tanaos/synthetic-spam-detection-dataset-german",
+    "tanaos/synthetic-spam-detection-dataset-italian",
+    "tegridydev/open-malsec",
+    "prithivMLmods/Spam-Text-Detect-Analysis",
+]
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -92,6 +115,24 @@ def _guess_column(columns: list[str], candidates: list[str]) -> str | None:
     return None
 
 
+def _normalise_dataset_names(dataset_names: list[str]) -> list[str]:
+    """
+    Normalize user-provided dataset identifiers:
+    - trim whitespace
+    - strip common malformed trailing unicode replacement character
+    - deduplicate while preserving order
+    """
+    out: list[str] = []
+    seen: set[str] = set()
+    for name in dataset_names:
+        clean = (name or "").strip().strip("\uFFFD").strip()
+        if not clean or clean in seen:
+            continue
+        seen.add(clean)
+        out.append(clean)
+    return out
+
+
 # ---------------------------------------------------------------------------
 # sms_spam  (HuggingFace: ucirvine/sms_spam or sms_spam)
 # ---------------------------------------------------------------------------
@@ -103,7 +144,7 @@ def download_sms_spam(data_dir: Path) -> DatasetDict:
     Schema: {sms: str, label: 0/1}  where 1 = spam
     """
     logger.info("Downloading sms_spam …")
-    ds = load_dataset("sms_spam", split="train", trust_remote_code=True)
+    ds = load_dataset("sms_spam", split="train")
     records = [
         {
             "text": row["sms"],
@@ -128,7 +169,7 @@ def download_enron_spam(data_dir: Path) -> list[dict]:
     Schema: {subject: str, message: str, label: 0/1}  where 1 = spam
     """
     logger.info("Downloading SetFit/enron_spam …")
-    splits = load_dataset("SetFit/enron_spam", trust_remote_code=True)
+    splits = load_dataset("SetFit/enron_spam")
     records: list[dict] = []
     for split_name, split_ds in splits.items():
         for row in split_ds:
@@ -164,7 +205,6 @@ def download_phishing_emails(data_dir: Path) -> list[dict]:
         ds = load_dataset(
             "ealvaradob/phishing-email-dataset",
             split="train",
-            trust_remote_code=True,
         )
         text_col = "text_combined" if "text_combined" in ds.column_names else ds.column_names[0]
         label_col = "label" if "label" in ds.column_names else ds.column_names[-1]
@@ -219,7 +259,7 @@ def download_dialogsum(data_dir: Path) -> list[dict]:
     Schema: {dialogue: str, summary: str, topic: str}
     """
     logger.info("Downloading knkarthick/dialogsum …")
-    splits = load_dataset("knkarthick/dialogsum", trust_remote_code=True)
+    splits = load_dataset("knkarthick/dialogsum")
     records: list[dict] = []
     for split_name, split_ds in splits.items():
         for row in split_ds:
@@ -246,13 +286,12 @@ def download_extra_hf_spam(data_dir: Path, dataset_names: list[str]) -> list[dic
     Tries to infer text/label columns and ignores unsupported datasets.
     """
     out_records: list[dict] = []
-    for name in dataset_names:
-        dataset_name = name.strip()
+    for dataset_name in _normalise_dataset_names(dataset_names):
         if not dataset_name:
             continue
         logger.info(f"Downloading extra HuggingFace dataset: {dataset_name}")
         try:
-            ds = load_dataset(dataset_name, split="train", trust_remote_code=True)
+            ds = load_dataset(dataset_name, split="train")
             columns = list(ds.column_names)
             text_col = _guess_column(columns, ["text", "message", "email", "content", "body"])
             label_col = _guess_column(columns, ["label", "target", "class", "spam"])
@@ -364,6 +403,7 @@ def download_all(
     data_dir: str | Path = "data",
     *,
     include_extended_hf: bool = False,
+    use_requested_dataset_bundle: bool = False,
     kaggle_dataset: str = "",
 ) -> dict[str, list[dict]]:
     """
@@ -384,11 +424,13 @@ def download_all(
     enron = download_enron_spam(data_dir)
     spam_records = sms + enron
     if include_extended_hf:
-        extra_names = os.environ.get(
+        extra_names = _normalise_dataset_names(os.environ.get(
             "WHYMAIL_EXTRA_HF_SPAM_DATASETS",
             "mrm8488/sms_spam,ShinoharaHare/Spam-Detection",
-        )
-        spam_records += download_extra_hf_spam(data_dir, extra_names.split(","))
+        ).split(","))
+        if use_requested_dataset_bundle:
+            extra_names += REQUESTED_HF_EMAIL_SECURITY_DATASETS
+        spam_records += download_extra_hf_spam(data_dir, extra_names)
     if kaggle_dataset:
         spam_records += download_kaggle_spam(data_dir, kaggle_dataset)
 
@@ -421,6 +463,11 @@ if __name__ == "__main__":
         help="Download additional HuggingFace spam datasets (best effort)",
     )
     parser.add_argument(
+        "--use-requested-dataset-bundle",
+        action="store_true",
+        help="Use the built-in requested high-volume email-security HF dataset bundle",
+    )
+    parser.add_argument(
         "--kaggle-dataset",
         default="",
         help="Optional Kaggle dataset slug for extra spam data, e.g. user/dataset",
@@ -429,5 +476,6 @@ if __name__ == "__main__":
     download_all(
         args.data_dir,
         include_extended_hf=args.include_extended_hf,
+        use_requested_dataset_bundle=args.use_requested_dataset_bundle,
         kaggle_dataset=args.kaggle_dataset,
     )

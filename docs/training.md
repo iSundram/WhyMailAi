@@ -53,6 +53,9 @@ For larger spam corpora, enable extra ingestion sources:
 # Add extra HuggingFace spam datasets (best effort)
 export WHYMAIL_INCLUDE_EXTENDED_HF=1
 
+# Use built-in requested high-volume anti-spam/phishing dataset bundle
+export WHYMAIL_USE_REQUESTED_DATASET_BUNDLE=1
+
 # Optionally add one Kaggle dataset slug (requires kaggle CLI + credentials)
 export WHYMAIL_KAGGLE_DATASET=<owner>/<dataset>
 
@@ -66,6 +69,14 @@ You can also invoke the Python downloader directly:
 
 ```bash
 python -m ml.data.download data/ --include-extended-hf --kaggle-dataset <owner>/<dataset>
+```
+
+Or include the built-in requested bundle:
+
+```bash
+python -m ml.data.download data/ \
+    --include-extended-hf \
+    --use-requested-dataset-bundle
 ```
 
 ### Manual download (alternative)
@@ -89,6 +100,7 @@ go run ./cmd/trainer \
     --task all \
     --profile advanced \
     --include-extended-hf \
+    --use-requested-dataset-bundle \
     --kaggle-dataset <owner>/<dataset> \
     --data-dir data/ \
     --models-dir models/

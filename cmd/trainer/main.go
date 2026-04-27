@@ -35,6 +35,7 @@ func main() {
 	python := flag.String("python", "python3", "Python interpreter")
 	profile := flag.String("profile", "standard", "Training profile: standard|advanced")
 	includeExtendedHF := flag.Bool("include-extended-hf", false, "Include optional extra HuggingFace spam datasets during download")
+	useRequestedDatasetBundle := flag.Bool("use-requested-dataset-bundle", false, "Include built-in requested high-volume HF dataset bundle during download")
 	kaggleDataset := flag.String("kaggle-dataset", "", "Optional Kaggle dataset slug for additional spam data")
 	dryRun := flag.Bool("dry-run", false, "Print commands without executing")
 	flag.Parse()
@@ -43,6 +44,7 @@ func main() {
 
 	if *profile == "advanced" {
 		*includeExtendedHF = true
+		*useRequestedDatasetBundle = true
 	}
 
 	tasks := expandTask(*task)
@@ -54,6 +56,7 @@ func main() {
 			*python,
 			*profile,
 			*includeExtendedHF,
+			*useRequestedDatasetBundle,
 			*kaggleDataset,
 			*dryRun,
 			registry,
@@ -80,6 +83,7 @@ func expandTask(task string) []string {
 func runTask(
 	task, dataDir, modelsDir, python, profile string,
 	includeExtendedHF bool,
+	useRequestedDatasetBundle bool,
 	kaggleDataset string,
 	dryRun bool,
 	registry *training.Registry,
@@ -98,6 +102,9 @@ func runTask(
 		args = []string{"-m", "ml.data.download", dataDir}
 		if includeExtendedHF {
 			args = append(args, "--include-extended-hf")
+		}
+		if useRequestedDatasetBundle {
+			args = append(args, "--use-requested-dataset-bundle")
 		}
 		if kaggleDataset != "" {
 			args = append(args, "--kaggle-dataset", kaggleDataset)

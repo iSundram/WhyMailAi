@@ -16,6 +16,7 @@ set -euo pipefail
 DATA_DIR="${1:-data}"
 PYTHON="${PYTHON:-python3}"
 INCLUDE_EXTENDED_HF="${WHYMAIL_INCLUDE_EXTENDED_HF:-0}"
+USE_REQUESTED_DATASET_BUNDLE="${WHYMAIL_USE_REQUESTED_DATASET_BUNDLE:-0}"
 KAGGLE_DATASET="${WHYMAIL_KAGGLE_DATASET:-}"
 
 echo "=== WhyMail AI Dataset Downloader ==="
@@ -36,9 +37,11 @@ echo "[1/4] Downloading datasets from HuggingFace …"
 ${PYTHON} -c "
 from ml.data.download import download_all
 include_extended = '${INCLUDE_EXTENDED_HF}'.strip().lower() in {'1', 'true', 'yes'}
+use_requested_bundle = '${USE_REQUESTED_DATASET_BUNDLE}'.strip().lower() in {'1', 'true', 'yes'}
 download_all(
     '${DATA_DIR}',
     include_extended_hf=include_extended,
+    use_requested_dataset_bundle=use_requested_bundle,
     kaggle_dataset='${KAGGLE_DATASET}',
 )
 "

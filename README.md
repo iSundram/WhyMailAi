@@ -51,7 +51,7 @@ Default address: `:8080`
 go run ./cmd/trainer --task all --data-dir data/ --models-dir models/
 
 # Advanced profile (larger base models, optional extra data)
-go run ./cmd/trainer --task all --profile advanced --include-extended-hf
+go run ./cmd/trainer --task all --profile advanced --include-extended-hf --use-requested-dataset-bundle
 ```
 
 ## Key Environment Variables
