@@ -43,6 +43,7 @@ LABEL_HAM = 0
 LABEL_SPAM = 1
 LABEL_LEGITIMATE = 0
 LABEL_PHISHING = 1
+KAGGLE_SLUG_PATTERN = r"[A-Za-z0-9_]+/[A-Za-z0-9_][A-Za-z0-9_-]*"
 
 
 # ---------------------------------------------------------------------------
@@ -290,7 +291,7 @@ def download_kaggle_spam(data_dir: Path, dataset_slug: str) -> list[dict]:
     """
     if not dataset_slug:
         return []
-    if not re.fullmatch(r"[A-Za-z0-9_]+/[A-Za-z0-9_][A-Za-z0-9_-]*", dataset_slug):
+    if not re.fullmatch(KAGGLE_SLUG_PATTERN, dataset_slug):
         logger.warning(
             "Invalid Kaggle dataset slug format. Expected 'owner/dataset'; skipping."
         )
@@ -305,6 +306,9 @@ def download_kaggle_spam(data_dir: Path, dataset_slug: str) -> list[dict]:
     try:
         timeout_s = max(60, int(os.environ.get("WHYMAIL_KAGGLE_DOWNLOAD_TIMEOUT_SECONDS", "300")))
     except Exception:
+        logger.warning(
+            "Invalid WHYMAIL_KAGGLE_DOWNLOAD_TIMEOUT_SECONDS value; using default 300."
+        )
         timeout_s = 300
     with tempfile.TemporaryDirectory(prefix="whymail-kaggle-") as tmp:
         cmd = [kaggle_bin, "datasets", "download", "-d", dataset_slug, "-p", tmp, "--unzip"]

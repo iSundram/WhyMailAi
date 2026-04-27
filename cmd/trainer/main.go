@@ -109,6 +109,8 @@ func runTask(
 			"--output-dir", filepath.Join(modelsDir, "spam_classifier"),
 		}
 		if profile == "advanced" {
+			// Advanced profile uses a larger encoder for higher quality.
+			// This increases GPU/CPU memory usage and training time.
 			args = append(args,
 				"--model-name", "microsoft/deberta-v3-base",
 				"--epochs", "5",
@@ -122,6 +124,8 @@ func runTask(
 			"--output-dir", filepath.Join(modelsDir, "phishing_classifier"),
 		}
 		if profile == "advanced" {
+			// Advanced profile uses a larger encoder for higher quality.
+			// This increases GPU/CPU memory usage and training time.
 			args = append(args,
 				"--model-name", "microsoft/deberta-v3-base",
 				"--epochs", "5",
@@ -135,6 +139,8 @@ func runTask(
 			"--output-dir", filepath.Join(modelsDir, "summarizer"),
 		}
 		if profile == "advanced" {
+			// Advanced profile uses a larger summarization model for quality.
+			// This increases memory usage and end-to-end training/inference cost.
 			args = append(args,
 				"--model-name", "facebook/bart-large-cnn",
 				"--epochs", "4",
